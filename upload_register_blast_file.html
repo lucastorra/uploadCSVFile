@@ -1,0 +1,97 @@
+<script>
+        /*
+        Ipaas form fields
+
+        <div style="margin-left: 50px; margin-top: 50px">
+            <h2 class="upload-title">Upload Register Blast File</h2>
+            <br>
+            <input type="file" id="csvFile" class="form-input-custom">
+            <br><br>
+            <button type="button" id="uploadImport" class="btn-add">Upload Import</button>
+        </div>
+        */
+
+        const csvFileInput = document.getElementById("csvFile");
+        const importButton = document.getElementById("uploadImport");
+
+        function parseCsvRow(row) {
+            const columns = [];
+            let currentValue = "";
+            let insideQuotes = false;
+
+            for (let index = 0; index < row.length; index++) {
+                const character = row[index];
+                const nextCharacter = row[index + 1];
+
+                if (character === '"' && insideQuotes && nextCharacter === '"') {
+                    currentValue += '"';
+                    index++;
+                } else if (character === '"') {
+                    insideQuotes = !insideQuotes;
+                } else if (character === "," && !insideQuotes) {
+                    columns.push(currentValue.trim());
+                    currentValue = "";
+                } else {
+                    currentValue += character;
+                }
+            }
+
+            columns.push(currentValue.trim());
+            return columns;
+        }
+
+        importButton.addEventListener("click", function () {
+            const file = csvFileInput.files[0];
+
+            if (!file) {
+                console.log("No file selected.");
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                const csvContent = e.target.result;
+
+                // Split CSV content into rows
+                const rows = csvContent
+                    .split(/\r?\n/)
+                    .filter(row => row.trim() !== "");
+
+                const rowsWithColumns = rows.map(parseCsvRow);
+                const columnNames = rowsWithColumns[0].map((column, index) => "column" + (index + 1));
+                const jsonData = rowsWithColumns.slice(1).map(row => {
+                    const rowObject = {};
+
+                    columnNames.forEach((columnName, index) => {
+                        rowObject[columnName] = row[index] ? row[index].trim() : "";
+                    });
+
+                    return rowObject;
+                });
+
+                console.log("CSV JSON:");
+                console.log(jsonData);
+
+                $.ajax({
+                    url: "https://ca1.teamdynamix.com/tdapp/app/flow/api/v1/start/0c0bc56e-b9d0-4500-ade6-9cc29178d7af/9c5922c9-3668-4f49-ad26-94d863e04c2a?waitForResults=true&waitForTimeout=60000",
+                    headers: {'upload_csv_key' : 'LfaZVpUkeW8J9pfGF0CmdAQ4jn97tUIgnpPd9TvQQhk='},
+                    method: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify(jsonData),
+                    success: function (response) {
+                      alert(`File uploaded successfully. Processed ${jsonData.length} rows.`);
+                    },
+                    error: function () {
+                      alert("❌ Error uploading file. Please try again.");
+                    },
+                  });
+            };
+
+            reader.onerror = function () {
+                console.error("Error reading file.");
+            };
+
+            reader.readAsText(file);
+        });
+    </script>
